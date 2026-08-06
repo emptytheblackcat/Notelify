@@ -3,29 +3,69 @@ name: Build Notelify Releases
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      target_os:
+        description: 'Select OS to build (or all)'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - windows
+          - linux
+          - macos
 
 jobs:
   build:
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
             artifact_name: notelify-linux
+            target: linux
           - os: windows-latest
             artifact_name: notelify-windows.exe
+            target: windows
           - os: macos-latest
             artifact_name: notelify-mac
+            target: macos
 
     steps:
       - name: Checkout repository
+        if: |
+          github.event_name == 'release' || 
+          inputs.target_os == 'all' || 
+          inputs.target_os == matrix.target
         uses: actions/checkout@v4
 
-      - name: Compile C++ Code
+      - name: Compile C++ Code (Windows MinGW Static)
+        if: |
+          runner.os == 'Windows' && (
+            github.event_name == 'release' || 
+            inputs.target_os == 'all' || 
+            inputs.target_os == matrix.target
+          )
+        run: |
+          g++ -std=c++17 -O2 main.cpp -o ${{ matrix.artifact_name }} -static -static-libgcc -static-libstdc++
+
+      - name: Compile C++ Code (Linux / macOS)
+        if: |
+          runner.os != 'Windows' && (
+            github.event_name == 'release' || 
+            inputs.target_os == 'all' || 
+            inputs.target_os == matrix.target
+          )
         run: |
           c++ -std=c++17 -O2 main.cpp -o ${{ matrix.artifact_name }}
 
       - name: Upload Binary to Release
+        if: |
+          github.event_name == 'release' || 
+          inputs.target_os == 'all' || 
+          inputs.target_os == matrix.target
         uses: softprops/action-gh-release@v1
         with:
           files: ${{ matrix.artifact_name }}
