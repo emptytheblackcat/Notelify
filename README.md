@@ -28,7 +28,7 @@
 Clone the repository and compile `main.cpp`:
 
 ```bash
-git clone [https://github.com/emptytheblackcat/notelify.git](https://github.com/emptytheblackcat/notelify.git)
+git clone https://github.com/emptytheblackcat/notelify.git
 cd notelify
 
 # Compile with C++17 standard flag
