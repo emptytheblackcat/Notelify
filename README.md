@@ -35,6 +35,8 @@ cd notelify
 g++ -std=c++17 main.cpp -o notelify
 ```
 
+---
+
 ## Important Installation Notice: Adding to System PATH
 
 To run Notelify from any folder in your terminal without typing `./notelify` or navigating to its folder every time, you need to manually add the executable to your system's PATH variable:
