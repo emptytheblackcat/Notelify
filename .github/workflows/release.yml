@@ -14,6 +14,8 @@ jobs:
             artifact_name: notelify-linux
           - os: windows-latest
             artifact_name: notelify-windows.exe
+          - os: macos-latest
+            artifact_name: notelify-mac
 
     steps:
       - name: Checkout repository
@@ -21,7 +23,7 @@ jobs:
 
       - name: Compile C++ Code
         run: |
-          g++ -std=c++17 -O2 main.cpp -o ${{ matrix.artifact_name }}
+          c++ -std=c++17 -O2 main.cpp -o ${{ matrix.artifact_name }}
 
       - name: Upload Binary to Release
         uses: softprops/action-gh-release@v1
