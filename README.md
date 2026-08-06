@@ -58,3 +58,16 @@ sudo mv notelify-linux /usr/local/bin/notelify
 ```
 
  You're done! Run notelify from any directory in your terminal.
+
+ ---
+
+ ## Known Issues
+
+I'm actively working on resolving these items for the next release:
+
+- **Title Character Collisions:** Titles containing special symbols (e.g., `?`, `/`) may sanitize to duplicate filenames.
+  - *Status:* Strict validation error handling planned for future releases.
+- **Editor Session Exit:** Exiting multi-line mode without typing `:save` discards uncommitted text without a confirmation prompt.
+  - *Status:* Adding explicit `:cancel` handling in future releases.
+
+> Found a bug not listed here? Please [Open an Issue](https://github.com/emptytheblackcat/Notelify/issues)!
