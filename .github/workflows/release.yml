@@ -15,6 +15,11 @@ on:
           - windows
           - linux
           - macos
+      build_beta:
+        description: 'Build using beta-main.cpp?'
+        required: true
+        default: false
+        type: boolean
 
 jobs:
   build:
@@ -44,6 +49,19 @@ jobs:
           inputs.target_os == matrix.target
         uses: actions/checkout@v4
 
+      # Determine which source file to compile
+      - name: Set Source File
+        id: source
+        run: |
+          if [ "${{ github.event.release.prerelease }}" = "true" ] || [ "${{ inputs.build_beta }}" = "true" ]; then
+            echo "SRC=beta-main.cpp" >> $GITHUB_ENV
+            echo "Building Pre-release version using beta-main.cpp"
+          else
+            echo "SRC=main.cpp" >> $GITHUB_ENV
+            echo "Building Official version using main.cpp"
+          fi
+        shell: bash
+
       # Windows: MinGW static linking
       - name: Compile C++ Code (Windows)
         if: |
@@ -53,7 +71,7 @@ jobs:
             inputs.target_os == matrix.target
           )
         run: |
-          g++ -std=c++17 -O2 main.cpp -o ${{ matrix.exe_name }} -static -static-libgcc -static-libstdc++
+          g++ -std=c++17 -O2 $env:SRC -o ${{ matrix.exe_name }} -static -static-libgcc -static-libstdc++
 
       # Linux: GCC static linking
       - name: Compile C++ Code (Linux)
@@ -64,7 +82,7 @@ jobs:
             inputs.target_os == matrix.target
           )
         run: |
-          g++ -std=c++17 -O2 main.cpp -o ${{ matrix.exe_name }} -static-libgcc -static-libstdc++
+          g++ -std=c++17 -O2 $SRC -o ${{ matrix.exe_name }} -static-libgcc -static-libstdc++
 
       # macOS: Clang static libc++ linking
       - name: Compile C++ Code (macOS)
@@ -75,7 +93,7 @@ jobs:
             inputs.target_os == matrix.target
           )
         run: |
-          clang++ -std=c++17 -O2 main.cpp -o ${{ matrix.exe_name }} -stdlib=libc++
+          clang++ -std=c++17 -O2 $SRC -o ${{ matrix.exe_name }} -stdlib=libc++
 
       # Zip creation for Windows
       - name: Create ZIP Package (Windows)
