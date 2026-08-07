@@ -1,7 +1,7 @@
 name: 'Build Notelify Releases'
+
 permissions:
-  contents: read
-  pull-requests: write
+  contents: write
 
 on:
   release:
@@ -45,18 +45,29 @@ jobs:
             target: macos
 
     steps:
+      # Step-level guard check to skip steps on unselected matrix runners
+      - name: Check if Step Should Run
+        id: check_run
+        run: |
+          if [ "${{ github.event_name }}" = "release" ] || [ "${{ inputs.target_os }}" = "all" ] || [ "${{ inputs.target_os }}" = "${{ matrix.target }}" ]; then
+            echo "should_run=true" >> $GITHUB_OUTPUT
+          else
+            echo "should_run=false" >> $GITHUB_OUTPUT
+          fi
+        shell: bash
+
       - name: Checkout repository
-        if: |
-          github.event_name == 'release' || 
-          inputs.target_os == 'all' || 
-          inputs.target_os == matrix.target
+        if: steps.check_run.outputs.should_run == 'true'
         uses: actions/checkout@v4
 
-      # Determine which source file to compile
       - name: Set Source File
+        if: steps.check_run.outputs.should_run == 'true'
         id: source
         run: |
-          if [ "${{ github.event.release.prerelease }}" = "true" ] || [ "${{ inputs.build_beta }}" = "true" ]; then
+          IS_PRERELEASE="${{ github.event.release.prerelease }}"
+          BUILD_BETA="${{ inputs.build_beta }}"
+
+          if [ "$IS_PRERELEASE" = "true" ] || [ "$BUILD_BETA" = "true" ]; then
             echo "SRC=beta-main.cpp" >> $GITHUB_ENV
             echo "Building Pre-release version using beta-main.cpp"
           else
@@ -65,69 +76,48 @@ jobs:
           fi
         shell: bash
 
-      # Windows: MinGW static linking
+      # Windows Compilation
       - name: Compile C++ Code (Windows)
-        if: |
-          runner.os == 'Windows' && (
-            github.event_name == 'release' || 
-            inputs.target_os == 'all' || 
-            inputs.target_os == matrix.target
-          )
+        if: steps.check_run.outputs.should_run == 'true' && runner.os == 'Windows'
         run: |
           g++ -std=c++17 -O2 $env:SRC -o ${{ matrix.exe_name }} -static -static-libgcc -static-libstdc++
 
-      # Linux: GCC static linking
+      # Linux Compilation
       - name: Compile C++ Code (Linux)
-        if: |
-          runner.os == 'Linux' && (
-            github.event_name == 'release' || 
-            inputs.target_os == 'all' || 
-            inputs.target_os == matrix.target
-          )
+        if: steps.check_run.outputs.should_run == 'true' && runner.os == 'Linux'
         run: |
           g++ -std=c++17 -O2 $SRC -o ${{ matrix.exe_name }} -static-libgcc -static-libstdc++
 
-      # macOS: Clang static libc++ linking
+      # macOS Compilation
       - name: Compile C++ Code (macOS)
-        if: |
-          runner.os == 'macOS' && (
-            github.event_name == 'release' || 
-            inputs.target_os == 'all' || 
-            inputs.target_os == matrix.target
-          )
+        if: steps.check_run.outputs.should_run == 'true' && runner.os == 'macOS'
         run: |
           clang++ -std=c++17 -O2 $SRC -o ${{ matrix.exe_name }} -stdlib=libc++
 
-      # Zip creation for Windows
+      # Packaging
       - name: Create ZIP Package (Windows)
-        if: |
-          runner.os == 'Windows' && (
-            github.event_name == 'release' || 
-            inputs.target_os == 'all' || 
-            inputs.target_os == matrix.target
-          )
+        if: steps.check_run.outputs.should_run == 'true' && runner.os == 'Windows'
         run: |
           Compress-Archive -Path ${{ matrix.exe_name }} -DestinationPath ${{ matrix.zip_name }}
 
-      # Zip creation for Linux & macOS
       - name: Create ZIP Package (Linux / macOS)
-        if: |
-          runner.os != 'Windows' && (
-            github.event_name == 'release' || 
-            inputs.target_os == 'all' || 
-            inputs.target_os == matrix.target
-          )
+        if: steps.check_run.outputs.should_run == 'true' && runner.os != 'Windows'
         run: |
           zip ${{ matrix.zip_name }} ${{ matrix.exe_name }}
 
-      # Upload ZIP file to GitHub Release
+      # Release Attachment (Runs ONLY during an actual Release event)
       - name: Upload ZIP to Release
-        if: |
-          github.event_name == 'release' || 
-          inputs.target_os == 'all' || 
-          inputs.target_os == matrix.target
+        if: steps.check_run.outputs.should_run == 'true' && github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
           files: ${{ matrix.zip_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Artifact Upload (Runs during manual workflow_dispatch triggers for testing builds)
+      - name: Upload Build Artifact (Manual Run)
+        if: steps.check_run.outputs.should_run == 'true' && github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.zip_name }}
+          path: ${{ matrix.zip_name }}
