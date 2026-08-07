@@ -2,30 +2,48 @@
 
 > A simple, lightweight, and cross-platform CLI note-taking app written in C++17.
 
-**Notelify** lets you quickly create, read, edit, list, and delete plain-text notes directly from your terminal. It automatically handles cross-platform directory paths and cleans up note titles so you never have to deal with broken file paths.
+**Notelify** lets you quickly create, read, edit, append to, list, and delete plain-text notes directly from your terminal. It automatically handles cross-platform directory paths and includes built-in filename validation to keep your notes organized and secure.
 
 ---
 
 ## Features
 
 - **Directory Handling:** Saves notes safely in your home directory (`~/.notelify` on Linux/macOS or `%USERPROFILE%\.notelify` on Windows).
-- **Filename Sanitization:** Converts titles to lowercase, replaces spaces with dashes (`-`), and strips out invalid OS characters.
-- **Multi-Line Input:** Type notes freely and save using the `:save` sentinel on a new line.
+- **Strict Filename Validation:** Rejects invalid OS characters, relative path references (`.` and `..`), leading/trailing spaces, and trailing dots to prevent path traversal issues.
+- **Multi-Line Input & Control:** Type notes freely and save using the `:save` keyword on a new line, or safely abort anytime with `:cancel`.
+- **Stream Termination Guard:** Handles EOF (`Ctrl+D` / `Ctrl+Z`) gracefully to avoid saving incomplete content.
 - **Zero External Dependencies:** Built using standard modern C++ (`std::filesystem`, `fstream`, `cstdlib`).
-- **Overwrite Protection:** Prevents accidentally overwriting existing notes when creating new ones.
+
+---
+
+## Usage
+
+```text
+  notelify new "TITLE"      Create a new note
+  notelify edit "TITLE"     Modify/overwrite an existing note
+  notelify append "TITLE"   Append new lines to an existing note
+  notelify read "TITLE"     Read a note
+  notelify list             List all saved notes
+  notelify delete "TITLE"   Delete a note (with confirmation)
+  notelify help             Show usage instructions
+```
 
 ---
 
 ## Getting Started
 
-> Download the latest release at the GitHub repo or compile it manually:
+**Pre-compiled Binaries:**
+- **Download the latest release from the Releases page:**
+  - notelify-windows.zip (Windows x86_64)
+  - notelify-linux.zip (Linux x86_64)
+  - notelify-macos.zip (macOS x86_64 / ARM64)
 
-### Prerequisites
-- A C++17 compatible compiler (`g++`, `clang++`, or MSVC).
+**Building from Source:**
 
-### Building
+ - **Prerequisites:** A C++17 compatible compiler (g++, clang++, or cl).
 
-Clone the repository and compile `main.cpp`:
+ - **Compilation:**
+   - Clone the repository and compile using C++17:
 
 ```bash
 git clone https://github.com/emptytheblackcat/notelify.git
@@ -38,11 +56,11 @@ g++ -std=c++17 main.cpp -o notelify
 ---
 
 ## Important Installation Notice: Adding to System PATH
-
 To run Notelify from any folder in your terminal without typing `./notelify` or navigating to its folder every time, you need to manually add the executable to your system's PATH variable:
 
 Windows (PowerShell / CMD)
- * Move `notelify-windows.exe` to a permanent folder (e.g., `C:\Tools\` and rename it to `notelify.exe`).
+ * Extract `notelify-windows.zip`.
+ * Move `notelify.exe` to a permanent folder (e.g., `C:\Tools\`).
  * Search "Edit the system environment variables" in the Windows Start menu.
  * Click Environment Variables... at the bottom right.
  * Under User variables, select Path and click Edit... -> New.
@@ -50,24 +68,24 @@ Windows (PowerShell / CMD)
  * Restart your terminal!
  
 Linux and macOS (Bash / Zsh)
- * Open your terminal in the directory where you downloaded the binary.
+ * Extract `notelify-linux.zip` (or `notelify-macos.zip`).
+ * Open your terminal in the directory where the binary lives.
  * Make the binary executable and move it to `/usr/local/bin`:
 ```bash
-chmod +x notelify-linux # or notelify-mac
-sudo mv notelify-linux /usr/local/bin/notelify
+chmod +x notelify
+sudo mv notelify /usr/local/bin/notelify
 ```
 
- You're done! Run notelify from any directory in your terminal.
+Verify your installation by running:
 
- ---
+```bash
+notelify help
+```
+
+---
 
  ## Known Issues
 
-I'm actively working on resolving these items for the next release:
-
-- **Title Character Collisions:** Titles containing special symbols (e.g., `?`, `/`) may sanitize to duplicate filenames.
-  - *Status:* Strict validation error handling planned for future releases.
-- **Editor Session Exit:** Exiting multi-line mode without typing `:save` discards uncommitted text without a confirmation prompt.
-  - *Status:* Adding explicit `:cancel` handling in future releases.
+There are currently no known issues.
 
 > Found a bug not listed here? Please [Open an Issue](https://github.com/emptytheblackcat/Notelify/issues)!
