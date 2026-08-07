@@ -24,13 +24,16 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            artifact_name: notelify-linux
+            exe_name: notelify
+            zip_name: notelify-linux.zip
             target: linux
           - os: windows-latest
-            artifact_name: notelify-windows.exe
+            exe_name: notelify.exe
+            zip_name: notelify-windows.zip
             target: windows
           - os: macos-latest
-            artifact_name: notelify-mac
+            exe_name: notelify
+            zip_name: notelify-macos.zip
             target: macos
 
     steps:
@@ -41,7 +44,8 @@ jobs:
           inputs.target_os == matrix.target
         uses: actions/checkout@v4
 
-      - name: Compile C++ Code (Windows MinGW Static)
+      # Windows: MinGW static linking
+      - name: Compile C++ Code (Windows)
         if: |
           runner.os == 'Windows' && (
             github.event_name == 'release' || 
@@ -49,9 +53,43 @@ jobs:
             inputs.target_os == matrix.target
           )
         run: |
-          g++ -std=c++17 -O2 main.cpp -o ${{ matrix.artifact_name }} -static -static-libgcc -static-libstdc++
+          g++ -std=c++17 -O2 main.cpp -o ${{ matrix.exe_name }} -static -static-libgcc -static-libstdc++
 
-      - name: Compile C++ Code (Linux / macOS)
+      # Linux: GCC static linking
+      - name: Compile C++ Code (Linux)
+        if: |
+          runner.os == 'Linux' && (
+            github.event_name == 'release' || 
+            inputs.target_os == 'all' || 
+            inputs.target_os == matrix.target
+          )
+        run: |
+          g++ -std=c++17 -O2 main.cpp -o ${{ matrix.exe_name }} -static-libgcc -static-libstdc++
+
+      # macOS: Clang static libc++ linking
+      - name: Compile C++ Code (macOS)
+        if: |
+          runner.os == 'macOS' && (
+            github.event_name == 'release' || 
+            inputs.target_os == 'all' || 
+            inputs.target_os == matrix.target
+          )
+        run: |
+          clang++ -std=c++17 -O2 main.cpp -o ${{ matrix.exe_name }} -stdlib=libc++
+
+      # Zip creation for Windows
+      - name: Create ZIP Package (Windows)
+        if: |
+          runner.os == 'Windows' && (
+            github.event_name == 'release' || 
+            inputs.target_os == 'all' || 
+            inputs.target_os == matrix.target
+          )
+        run: |
+          Compress-Archive -Path ${{ matrix.exe_name }} -DestinationPath ${{ matrix.zip_name }}
+
+      # Zip creation for Linux & macOS
+      - name: Create ZIP Package (Linux / macOS)
         if: |
           runner.os != 'Windows' && (
             github.event_name == 'release' || 
@@ -59,15 +97,16 @@ jobs:
             inputs.target_os == matrix.target
           )
         run: |
-          c++ -std=c++17 -O2 main.cpp -o ${{ matrix.artifact_name }}
+          zip ${{ matrix.zip_name }} ${{ matrix.exe_name }}
 
-      - name: Upload Binary to Release
+      # Upload ZIP file to GitHub Release
+      - name: Upload ZIP to Release
         if: |
           github.event_name == 'release' || 
           inputs.target_os == 'all' || 
           inputs.target_os == matrix.target
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
-          files: ${{ matrix.artifact_name }}
+          files: ${{ matrix.zip_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
