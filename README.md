@@ -11,7 +11,7 @@
 ## Features
 
 - **Directory Handling:** Saves notes safely in your home directory (`~/.notelify` on Linux/macOS or `%USERPROFILE%\.notelify` on Windows).
-- **Strict Filename Validation:** Rejects invalid OS characters, relative path references (`.` and `..`), leading/trailing spaces, and trailing dots to prevent path traversal issues.
+- **Strict Filename Validation:** Rejects invalid OS characters, relative path references (`.` and `..`), leading/trailing spaces, trailing dots, and invalid Windows filenames.
 - **Multi-Line Input & Control:** Type notes freely and save using the `:save` keyword on a new line, or safely abort anytime with `:cancel`.
 - **Stream Termination Guard:** Handles EOF (`Ctrl+D` / `Ctrl+Z`) gracefully to avoid saving incomplete content.
 - **Zero External Dependencies:** Built using standard modern C++ (`std::filesystem`, `fstream`, `cstdlib`).
