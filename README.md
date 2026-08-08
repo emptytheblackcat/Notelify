@@ -4,6 +4,8 @@
 
 **Notelify** lets you quickly create, read, edit, append to, list, and delete plain-text notes directly from your terminal. It automatically handles cross-platform directory paths and includes built-in filename validation to keep your notes organized and secure.
 
+**Check the latest release [HERE](https://github.com/emptytheblackcat/Notelify/releases)**
+
 ---
 
 ## Features
