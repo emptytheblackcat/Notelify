@@ -11,15 +11,34 @@
 namespace fs = std::filesystem;
 using namespace std;
 
-// Checker to make sure filename only contains alphanumeric characters and spaces, not starts or ends with space
+// Helper to check for Windows reserved names (CON, PRN, AUX, NUL, COM1-9, LPT1-9)
+bool isWindowsReservedName(const string& filename) {
+    string upperStem = "";
+    for (char c : filename) {
+        if (c == '.') break; // Windows checks the stem before extension (e.g. CON.txt is reserved)
+        upperStem += static_cast<char>(toupper(static_cast<unsigned char>(c)));
+    }
+    static const vector<string> reserved = {
+        "CON", "PRN", "AUX", "NUL",
+        "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+        "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
+    };
+    for (const auto& r : reserved) {
+        if (upperStem == r) return true;
+    }
+    return false;
+}
+
+// Checker to make sure filename is valid
 bool filenameChecker(const string& filename){
     if (filename.empty()) return false;
     if (filename[0] == ' ' || filename.back() == ' ') return false;
-    if (filename.back() == '.') return false; // Prevents "a.." turning into "a...txt" -> Windows strips trailing dots
+    if (filename.back() == '.') return false;
     if (filename == "." || filename == "..") return false;
+    if (isWindowsReservedName(filename)) return false;
 
     for (char c : filename){
-        if (!isalnum(c) && c != ' ' && c != '-' && c != '_' && c != '.') return false;
+        if (!isalnum(static_cast<unsigned char>(c)) && c != ' ' && c != '-' && c != '_' && c != '.') return false;
     }
     return true;
 }
@@ -39,9 +58,9 @@ fs::path getNotesDirectory() {
 
 // Initialize notes directory if it doesn't exist
 void initDirectory(const fs::path& notesDir) {
-    if (!fs::exists(notesDir)) {
-        fs::create_directories(notesDir);
-    }
+        if (!fs::exists(notesDir)) {
+            fs::create_directories(notesDir);
+        }
 }
 
 struct InputResult {
@@ -66,6 +85,7 @@ InputResult getMultiLineInput() {
     }
     
     // If getline loop breaks because cin hit EOF (Ctrl+D / Ctrl+Z)
+    cin.clear(); 
     cout << "\n[CANCELLED] Stream closed (EOF). Operation aborted.\n";
     return {"", true};
 }
@@ -169,9 +189,11 @@ void appendNote(const fs::path& notesDir, const string& title) {
     if (res.cancelled) return;
     string addedContent = res.content;
 
-    if (addedContent.empty()) return; // skips append if cancelled
+    if (addedContent.empty()){
+        cout << "[ERROR] Cannot append empty content!\n";
+        return;
+    }
 
-    // Open file in append mode (std::ios::app)
     ofstream writeFile(filePath, std::ios::app);
     if (writeFile.is_open()) {
         writeFile << addedContent;
@@ -186,12 +208,12 @@ void appendNote(const fs::path& notesDir, const string& title) {
 void listNotes(const fs::path& notesDir) {
     cout << "\n--- Your Notes ---\n";
     bool found = false;
-    for (const auto& entry : fs::directory_iterator(notesDir)) {
-        if (entry.is_regular_file() && entry.path().extension() == ".txt") {
-            cout << "- " << entry.path().stem().string() << "\n";
-            found = true;
+        for (const auto& entry : fs::directory_iterator(notesDir)) {
+            if (entry.is_regular_file() && entry.path().extension() == ".txt") {
+                cout << "- " << entry.path().stem().string() << "\n";
+                found = true;
+            }
         }
-    }
     if (!found) {
         cout << "(No notes found)\n";
     }
@@ -204,25 +226,25 @@ void deleteNote(const fs::path& notesDir, const string& title) {
         return;
     }
     fs::path filePath = notesDir / (title + ".txt");
-    if (!fs::exists(filePath)) {
-        cout << "[ERROR] Note '" << title << "' not found.\n";
-        return;
-    }
+        if (!fs::exists(filePath)) {
+            cout << "[ERROR] Note '" << title << "' not found.\n";
+            return;
+        }
 
-    cout << "Are you sure you want to delete '" << title << "'? (Y/N): ";
-    string choice;
-    getline(cin, choice);
-    if (choice != "y" && choice != "Y") {
-        cout << "[CANCELLED] Deletion aborted.\n";
-        return;
-    }
+        cout << "Are you sure you want to delete '" << title << "'? (Y/N): ";
+        string choice;
+        getline(cin, choice);
+        if (choice != "y" && choice != "Y") {
+            cout << "[CANCELLED] Deletion aborted.\n";
+            return;
+        }
 
-    fs::remove(filePath);
-    cout << "[SUCCESS] Note '" << title << "' deleted.\n";
+        fs::remove(filePath);
+        cout << "[SUCCESS] Note '" << title << "' deleted.\n";
 }
 
 void printHelp() {
-    cout << "Notelify - CLI Notes App (v2.0.0)\n\n";
+    cout << "Notelify - CLI Notes App (v2.1.0-beta)\n\n";
     cout << "Usage:\n";
     cout << "  notelify new \"TITLE\"      Create a new note\n";
     cout << "  notelify edit \"TITLE\"     Modify/overwrite an existing note\n";
