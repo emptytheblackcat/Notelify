@@ -57,10 +57,19 @@ fs::path getNotesDirectory() {
 }
 
 // Initialize notes directory if it doesn't exist
-void initDirectory(const fs::path& notesDir) {
+bool initDirectory(const fs::path& notesDir) {
+    try {
         if (!fs::exists(notesDir)) {
-            fs::create_directories(notesDir);
+            if (!fs::create_directories(notesDir)) {
+                cout << "[ERROR] Could not read notes directory: " << notesDir.string() << "\n";
+                return false;
+            }
         }
+        return true;
+    } catch (const fs::filesystem_error&) {
+        cout << "[ERROR] Could not read notes directory: " << notesDir.string() << "\n";
+        return false;
+    }
 }
 
 struct InputResult {
@@ -96,57 +105,94 @@ void createNote(const fs::path& notesDir, const string& title) {
         cout << "[ERROR] Invalid filename!\n";
         return;
     }
+    
     fs::path filePath = notesDir / (title + ".txt");
-    if (fs::exists(filePath)) {
-        cout << "[WARNING] Note '" << title << "' already exists! Use 'notelify edit \"" << title << "\"' instead.\n";
-        return;
-    }
-    InputResult res = getMultiLineInput();
-    if (res.cancelled) return;
-    string content = res.content;
+    fs::path tmpPath = notesDir / (title + ".tmp");
 
-    ofstream file(filePath);
-    if (file.is_open()) {
-        file << content;
-        file.close();
+    try {
+        if (fs::exists(filePath)) {
+            cout << "[WARNING] Note '" << title << "' already exists! Use 'notelify edit \"" << title << "\"' instead.\n";
+            return;
+        }
+
+        InputResult res = getMultiLineInput();
+        if (res.cancelled) return; // Aborted! Nothing created.
+
+        // Write content to a temporary file first
+        ofstream writeFile(tmpPath);
+        if (!writeFile.is_open()) {
+            cout << "[ERROR] Could not create temp file! Aborting without saving.\n";
+            return;
+        }
+
+        writeFile << res.content;
+        writeFile.close();
+
+        // Atomically move temp file to target note path
+        fs::rename(tmpPath, filePath);
         cout << "[SUCCESS] Note saved to " << filePath.string() << "\n";
-    } else {
-        cout << "[ERROR] Could not save note.\n";
+
+    } catch (const std::exception&) {
+        if (fs::exists(tmpPath)) fs::remove(tmpPath);
+        cout << "[ERROR] Unexpected filesystem error! Aborting creation.\n";
     }
 }
 
 // Command: notelify edit "TITLE"
 void editNote(const fs::path& notesDir, const string& title) {
-    if (!filenameChecker(title)){
+    if (!filenameChecker(title)) {
         cout << "[ERROR] Invalid filename!\n";
         return;
     }
+    
     fs::path filePath = notesDir / (title + ".txt");
-    if (!fs::exists(filePath)) {
-        cout << "[ERROR] Note '" << title << "' does not exist!\n";
-        return;
-    }
+    fs::path tmpPath = notesDir / (title + ".tmp");
 
-    cout << "\n--- Current Content of '" << title << "' ---\n";
-    ifstream readFile(filePath);
-    string line;
-    while (getline(readFile, line)) {
-        cout << line << "\n";
-    }
-    readFile.close();
+    try {
+        if (!fs::exists(filePath)) {
+            cout << "[ERROR] Note '" << title << "' does not exist!\n";
+            return;
+        }
 
-    cout << "\n--- Enter New Content ---\n";
-    InputResult res = getMultiLineInput();
-    if (res.cancelled) return;
-    string newContent = res.content;
+        // Print existing content safely
+        ifstream readFile(filePath);
+        if (!readFile.is_open()) {
+            cout << "[ERROR] Could not open note for reading! Aborting.\n";
+            return;
+        }
 
-    ofstream writeFile(filePath);
-    if (writeFile.is_open()) {
-        writeFile << newContent;
+        cout << "\n--- Current Content of '" << title << "' ---\n";
+        string line;
+        while (getline(readFile, line)) {
+            cout << line << "\n";
+        }
+        readFile.close();
+
+        // Get new input
+        cout << "\n--- Enter New Content ---\n";
+        InputResult res = getMultiLineInput();
+        if (res.cancelled) {
+            return; // Aborted! Original file is untouched.
+        }
+
+        // Write to temp file FIRST so original note is never touched if this fails
+        ofstream writeFile(tmpPath);
+        if (!writeFile.is_open()) {
+            cout << "[ERROR] Could not open temp file! Aborting without saving.\n";
+            return;
+        }
+
+        writeFile << res.content;
         writeFile.close();
+
+        // Atomic swap - replaces original ONLY if temp write was 100% successful
+        fs::rename(tmpPath, filePath);
         cout << "[SUCCESS] Note '" << title << "' updated.\n";
-    } else {
-        cout << "[ERROR] Could not update note.\n";
+
+    } catch (const std::exception& e) {
+        // Clean up temp file if it exists, leaving original untouched
+        if (fs::exists(tmpPath)) fs::remove(tmpPath);
+        cout << "[ERROR] Unexpected filesystem error! Aborting.\n";
     }
 }
 
@@ -176,31 +222,48 @@ void appendNote(const fs::path& notesDir, const string& title) {
         cout << "[ERROR] Invalid filename!\n";
         return;
     }
+
     fs::path filePath = notesDir / (title + ".txt");
-    if (!fs::exists(filePath)) {
-        cout << "[ERROR] Note '" << title << "' does not exist!\n";
-        return;
-    }
+    fs::path tmpPath = notesDir / (title + ".tmp");
 
-    readNote(notesDir, title);
+    try {
+        if (!fs::exists(filePath)) {
+            cout << "[ERROR] Note '" << title << "' does not exist!\n";
+            return;
+        }
 
-    cout << "\n--- Enter text to append ---\n";
-    InputResult res = getMultiLineInput();
-    if (res.cancelled) return;
-    string addedContent = res.content;
+        readNote(notesDir, title);
 
-    if (addedContent.empty()){
-        cout << "[ERROR] Cannot append empty content!\n";
-        return;
-    }
+        cout << "\n--- Enter text to append ---\n";
+        InputResult res = getMultiLineInput();
+        if (res.cancelled) return; // Aborted! Original file untouched.
 
-    ofstream writeFile(filePath, std::ios::app);
-    if (writeFile.is_open()) {
-        writeFile << addedContent;
+        if (res.content.empty()){
+            cout << "[ERROR] Cannot append empty content!\n";
+            return;
+        }
+
+        // Copy existing content into temp file first
+        fs::copy_file(filePath, tmpPath, fs::copy_options::overwrite_existing);
+
+        // Append new content to the temp file
+        ofstream writeFile(tmpPath, std::ios::app);
+        if (!writeFile.is_open()) {
+            cout << "[ERROR] Could not append to temp file! Aborting.\n";
+            if (fs::exists(tmpPath)) fs::remove(tmpPath);
+            return;
+        }
+
+        writeFile << res.content;
         writeFile.close();
+
+        // Atomically replace original with updated temp file
+        fs::rename(tmpPath, filePath);
         cout << "[SUCCESS] Content appended to '" << title << "'.\n";
-    } else {
-        cout << "[ERROR] Could not append to note.\n";
+
+    } catch (const std::exception&) {
+        if (fs::exists(tmpPath)) fs::remove(tmpPath);
+        cout << "[ERROR] Unexpected filesystem error! Aborting append.\n";
     }
 }
 
@@ -208,14 +271,18 @@ void appendNote(const fs::path& notesDir, const string& title) {
 void listNotes(const fs::path& notesDir) {
     cout << "\n--- Your Notes ---\n";
     bool found = false;
+    try {
         for (const auto& entry : fs::directory_iterator(notesDir)) {
             if (entry.is_regular_file() && entry.path().extension() == ".txt") {
                 cout << "- " << entry.path().stem().string() << "\n";
                 found = true;
             }
         }
-    if (!found) {
-        cout << "(No notes found)\n";
+        if (!found) {
+            cout << "(No notes found)\n";
+        }
+    } catch (const fs::filesystem_error&) {
+        cout << "[ERROR] Could not read notes directory: " << notesDir.string() << "\n";
     }
 }
 
@@ -244,7 +311,15 @@ void deleteNote(const fs::path& notesDir, const string& title) {
 }
 
 void printHelp() {
-    cout << "Notelify - CLI Notes App (v2.1.0-beta)\n\n";
+    std::cout << R"(
+ __        __      _       _ _  __               
+ \ \    /\ \ \___ | |_ ___| (_)/ _|_   _         
+  \ \  /  \/ / _ \| __/ _ \ | | |_| | | |        
+  / / / /\  / (_) | ||  __/ | |  _| |_| |        
+ /_/  \_\ \/ \___/ \__\___|_|_|_|  \__, |  _____ 
+                                   |___/  |_____|
+)" << '\n';
+    cout << "Notelify - CLI Notes App (v2.2.0-beta)\n\n";
     cout << "Usage:\n";
     cout << "  notelify new \"TITLE\"      Create a new note\n";
     cout << "  notelify edit \"TITLE\"     Modify/overwrite an existing note\n";
@@ -257,7 +332,9 @@ void printHelp() {
 
 int main(int argc, char* argv[]) {
     fs::path notesDir = getNotesDirectory();
-    initDirectory(notesDir);
+    if (!initDirectory(notesDir)) {
+        return 1;
+    }
     if (argc < 2) {
         printHelp();
         return 0;
