@@ -1,4 +1,9 @@
-# Notelify
+ __        __      _       _ _  __               
+ \ \    /\ \ \___ | |_ ___| (_)/ _|_   _         
+  \ \  /  \/ / _ \| __/ _ \ | | |_| | | |        
+  / / / /\  / (_) | ||  __/ | |  _| |_| |        
+ /_/  \_\ \/ \___/ \__\___|_|_|_|  \__, |  _____ 
+                                   |___/  |_____|
 
 > A simple, lightweight, and cross-platform CLI note-taking app written in C++17.
 
