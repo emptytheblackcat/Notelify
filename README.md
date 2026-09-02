@@ -67,7 +67,7 @@ g++ -std=c++17 main.cpp -o notelify
 ## Important Installation Notice: Adding to System PATH
 To run Notelify from any folder in your terminal without typing `./notelify` or navigating to its folder every time, you need to manually add the executable to your system's PATH variable:
 
-Windows (PowerShell / CMD)
+### Windows (PowerShell / CMD)
  * Extract `notelify-windows.zip`.
  * Move `notelify.exe` to a permanent folder (e.g., `C:\Tools\`).
  * Search "Edit the system environment variables" in the Windows Start menu.
@@ -76,7 +76,7 @@ Windows (PowerShell / CMD)
  * Paste `C:\Tools\` (or the folder path where `notelify.exe` lives) and click OK.
  * Restart your terminal!
  
-Linux and macOS (Bash / Zsh)
+### Linux and macOS (Bash / Zsh)
  * Extract `notelify-linux.zip` (or `notelify-macos.zip`).
  * Open your terminal in the directory where the binary lives.
  * Make the binary executable and move it to `/usr/local/bin`:
