@@ -42,7 +42,7 @@
 ## Getting Started
 
 **Pre-compiled Binaries:**
-- **Download the latest release from the Releases page:**
+- **Download the latest release from the [Releases](https://github.com/emptytheblackcat/Notelify/releases) page:**
   - notelify-windows.zip (Windows x86_64)
   - notelify-linux.zip (Linux x86_64)
   - notelify-macos.zip (macOS x86_64 / ARM64)
