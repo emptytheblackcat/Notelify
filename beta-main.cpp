@@ -202,18 +202,30 @@ void readNote(const fs::path& notesDir, const string& title) {
         cout << "[ERROR] Invalid filename!\n";
         return;
     }
+    
     fs::path filePath = notesDir / (title + ".txt");
-    if (!fs::exists(filePath)) {
-        cout << "[ERROR] Note '" << title << "' does not exist!\n";
-        return;
+
+    try {
+        if (!fs::exists(filePath)) {
+            cout << "[ERROR] Note '" << title << "' does not exist!\n";
+            return;
+        }
+
+        ifstream file(filePath);
+        if (!file.is_open()) {
+            cout << "[ERROR] Could not open note for reading!\n";
+            return;
+        }
+
+        string line;
+        cout << "\n--- Current Content of '" << title << "' ---\n";
+        while (getline(file, line)) {
+            cout << line << "\n";
+        }
+        cout << "\n";
+    } catch (const std::exception&) {
+        cout << "[ERROR] Unexpected error reading note!\n";
     }
-    ifstream file(filePath);
-    string line;
-    cout << "\n--- Current Content of '" << title << "' ---\n";
-    while (getline(file, line)) {
-        cout << line << "\n";
-    }
-    cout << "\n";
 }
 
 // Command: notelify append "TITLE"
@@ -292,7 +304,10 @@ void deleteNote(const fs::path& notesDir, const string& title) {
         cout << "[ERROR] Invalid filename!\n";
         return;
     }
+    
     fs::path filePath = notesDir / (title + ".txt");
+
+    try {
         if (!fs::exists(filePath)) {
             cout << "[ERROR] Note '" << title << "' not found.\n";
             return;
@@ -308,6 +323,10 @@ void deleteNote(const fs::path& notesDir, const string& title) {
 
         fs::remove(filePath);
         cout << "[SUCCESS] Note '" << title << "' deleted.\n";
+        
+    } catch (const std::exception&) {
+        cout << "[ERROR] Unexpected error deleting note!\n";
+    }
 }
 
 void printHelp() {
@@ -319,7 +338,7 @@ void printHelp() {
  /_/  \_\ \/ \___/ \__\___|_|_|_|  \__, |  _____ 
                                    |___/  |_____|
 )" << '\n';
-    cout << "Notelify - CLI Notes App (v2.2.0-beta)\n\n";
+    cout << "Notelify - CLI Notes App (v2.3.0-beta)\n\n";
     cout << "Usage:\n";
     cout << "  notelify new \"TITLE\"      Create a new note\n";
     cout << "  notelify edit \"TITLE\"     Modify/overwrite an existing note\n";
